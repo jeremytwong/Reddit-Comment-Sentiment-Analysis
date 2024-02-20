@@ -1,0 +1,7 @@
+{
+    "VOCAB_SIZE": 30000,
+    "MAX_LEN": 250,
+    "EMBEDDING_DIM": 16,
+    "MODEL_PATH": "sentiment_analysis_model.h5",
+    "DATA_PATH": "data.csv"
+}
