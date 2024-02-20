@@ -29,19 +29,11 @@ def train_model(train_data, train_labels, VOCAB_SIZE, EMBEDDING_DIM, MAX_LEN, MO
     model.fit(train_data, train_labels, epochs=10, batch_size=32, validation_split=0.2)
     model.save(MODEL_PATH)
 
-
-def main():
-    with open('config.json') as config_file:
-        config = json.load(config_file)
-
-    VOCAB_SIZE = config['VOCAB_SIZE']
-    MAX_LEN = config['MAX_LEN']
-    EMBEDDING_DIM = config['EMBEDDING_DIM']
-    MODEL_PATH = config['MODEL_PATH']
-    DATA_PATH = config['DATA_PATH']
-    OOV_TOKEN = "<OOV>"
-
+def load_and_preprocess_data(DATA_PATH, VOCAB_SIZE, MAX_LEN, OOV_TOKEN):
     df_shuffled = load_data(DATA_PATH)
+    if df_shuffled is None:
+        print("Failed to load data, stopping.")
+        return None, None, None, None
 
     texts = []
     labels = []
@@ -67,18 +59,39 @@ def main():
     train_labels = labels[:-5000]
     test_labels = labels[-5000:]
 
+    return train_data, test_data, train_labels, test_labels, tokenizer
+
+def main():
+    with open('config.json') as config_file:
+        config = json.load(config_file)
+
+    VOCAB_SIZE = config['VOCAB_SIZE']
+    MAX_LEN = config['MAX_LEN']
+    EMBEDDING_DIM = config['EMBEDDING_DIM']
+    MODEL_PATH = config['MODEL_PATH']
+    DATA_PATH = config['DATA_PATH']
+    OOV_TOKEN = "<OOV>"
+
     model = None
 
     if os.path.exists(MODEL_PATH):
         print("Loading saved model...")
         model = load_model(MODEL_PATH)
-    else:
+        with open('tokenizer.pickle', 'rb') as handle:
+            tokenizer = pickle.load(handle)
+    elif os.path.exists(DATA_PATH):
+        print("No model found. Loading data...")
+        train_data, test_data, train_labels, test_labels, tokenizer = load_and_preprocess_data(DATA_PATH, VOCAB_SIZE, MAX_LEN, OOV_TOKEN)
+        if train_data is None:
+            return
         print("Training a new model...")
         train_model(train_data, train_labels, VOCAB_SIZE, EMBEDDING_DIM, MAX_LEN, MODEL_PATH)
-
-    loss, accuracy = model.evaluate(test_data, test_labels)
-
-    print(f"Test accuracy: {accuracy * 100:.2f}%")
+        model = load_model(MODEL_PATH)
+        loss, accuracy = model.evaluate(test_data, test_labels)
+        print(f"Test accuracy: {accuracy * 100:.2f}%")
+    else:
+        print("No model or data found, stopping.")
+        return
 
     def encode_text(text):
         tokens = tf.keras.preprocessing.text.text_to_word_sequence(text)
